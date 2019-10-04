@@ -4,19 +4,15 @@ Schetch to control the sensors of the instrumented glove designed by Federico Sa
   (https://www.sparkfun.com/products/10264)
 Federico Sanna @ Imperial College London
 July 30, 2019
-
 Connect the BNC cable to ground and to the Digital Pin no. 10.
-
 For the flex sensors:
 Create a voltage divider circuit combining a flex sensor with a 47k resistor.
 - The resistor should connect from A0 (or other analog inputs) to GND.
 - The flex sensor should connect from A0 (or other analog inputs) to 5V
 As the resistance of the flex sensor increases (meaning it's being bent), the
 voltage at A0 should decrease.
-
 For the accelertator: 
 Connect the //TOBECONTINUED
-
 To save the data from the serial port to a .txt file, create a python code as follow:
                   ##############
                   ## Script listens to serial port and writes contents into a file
@@ -36,8 +32,6 @@ To save the data from the serial port to a .txt file, create a python code as fo
                       print(line);
                       output_file.write(line);
 End of python code
-
-
 Development environment specifics:
 Arduino 1.8.3
 ******************************************************************************/
@@ -70,17 +64,17 @@ float         last_gyro_x_angle;  // Store the gyro angles to compare drift
 float         last_gyro_y_angle;
 float         last_gyro_z_angle;
 
-const int FLEX_PIN0 = A0; // Pin connected to voltage divider output
-const int FLEX_PIN1 = A1; // Pin connected to voltage divider output
-const int FLEX_PIN2 = A2; // Pin connected to voltage divider output
-const int FLEX_PIN3 = A3; // Pin connected to voltage divider output
+const int FLEX_PIN0 = A0; // top thumb
+const int FLEX_PIN1 = A1; // internal thumb
+const int FLEX_PIN2 = A2; // medial wrist
+const int FLEX_PIN3 = A3; // lateral wrist
 //CAREFULL: the pins A4 and A5 are used for the I2C comunication, so you cannot make use of them
-const int FLEX_PIN6 = A6; // Pin connected to voltage divider output
-const int FLEX_PIN7 = A7; // Pin connected to voltage divider output
-const int FLEX_PIN8 = A8; // Pin connected to voltage divider output
-const int FLEX_PIN9 = A9; // Pin connected to voltage divider output
-const int FLEX_PIN10 = A10; // Pin connected to voltage divider output
-const int FLEX_PIN11 = A11; // Pin connected to voltage divider output
+const int FLEX_PIN6 = A6; // interfalangeal index
+const int FLEX_PIN7 = A7; // metacarpal index
+const int FLEX_PIN8 = A8; // interf middle finger
+const int FLEX_PIN9 = A9; // metac middle finger
+const int FLEX_PIN10 = A10; // interf ring finger
+const int FLEX_PIN11 = A11; // metac ring finger
 const int buttonPin = 2;     // the number of the pushbutton pin
 const int squareSignFromArduino = 3;
 const int ledPin =  13;      // the number of the LED pin
@@ -104,6 +98,8 @@ const int index_max_pin = FLEX_PIN11;  // Each pin is indexed with a number.
                                 // Max Index should correspond to 65
 float STRAIGHT_RESISTANCE[index_max_pin] = {};
 float BEND_RESISTANCE[index_max_pin] = {};
+
+
 
 void set_last_read_angle_data(unsigned long time, float x, float y, float z, float x_gyro, float y_gyro, float z_gyro) {
   last_read_time = time;
@@ -216,7 +212,9 @@ void setup() {
 
   set_last_read_angle_data(millis(), 0, 0, 0, 0, 0, 0);
 
+  // setting the header of the recording
 
+  Serial.println("Time;Accelx;Accely;Accelz;angle0;angle1;angle2;angle3;angle6;angle7;angle8;angle9;angle10;angle11");
 }
 
 void loop() {
@@ -239,10 +237,10 @@ void loop() {
   float gyro_y = g.gyro.y;
   float gyro_z = g.gyro.z;
 
-  float angle_0 = CalculateAngleAtPin(FLEX_PIN0);
-  float angle_1 = CalculateAngleAtPin(FLEX_PIN1);
-  float angle_2 = CalculateAngleAtPin(FLEX_PIN2);
-  float angle_3 = CalculateAngleAtPin(FLEX_PIN3);
+  float angle_0 = CalculateAngleAtPinTopThumb(FLEX_PIN0);
+  float angle_1 = CalculateAngleAtPinInternalThumb(FLEX_PIN1);
+  float angle_2 = CalculateAngleAtPinMedialWrist(FLEX_PIN2);
+  float angle_3 = CalculateAngleAtPinLateralWrist(FLEX_PIN3);
   float angle_6 = CalculateAngleAtPin(FLEX_PIN6);
   float angle_7 = CalculateAngleAtPin(FLEX_PIN7);
   float angle_8 = CalculateAngleAtPin(FLEX_PIN8);
@@ -312,6 +310,7 @@ void loop() {
   // Following code get executed when receiving the square wave
   if (record == HIGH) {
     // FOR FIRMAN: THIS IS THE PART THAT SHOULD BE SAVED, EVERYTHING PRINTED IN HERE
+    /*
     Serial.print(F("Angle with respect to the horizontal:"));      //Filtered angle
     Serial.print(angle_x, 2);
     Serial.print(F(","));
@@ -334,9 +333,15 @@ void loop() {
     Serial.println();
   
     Serial.println("The time now is: " + String(millis()) + " ms");
+    */
+
+    // printing data following the header.
+
+    Serial.println(String(float(millis())/1000)+";"+String(angle_x)+";"+String(angle_y)+";"+String(angle_z)+";"+String(angle_0)+";"+String(angle_1)+";"+String(angle_2)+";"+String(angle_3)+";"+String(angle_6)+";"+String(angle_7)+";"+String(angle_8)+";"+String(angle_9)+";"+String(angle_10)+";"+String(angle_11));
+    //Serial.println(record);
   }
 
-  
+
   //The following code is to check for when calibration should be performed
   // read the pushbutton input pin:
   buttonState = digitalRead(buttonPin);
@@ -346,10 +351,11 @@ void loop() {
     if (buttonState == HIGH) {
       // if the current state is HIGH then the button went from off to on:
       // do nothing, but can be implemented to add functions for multiple consequent presses
+      Calibration();
     } else {
       // if the current state is LOW then the button went from on to off:
-      Calibration();  //perform calibration on release of the button
-      
+      //Calibration();  //perform calibration on release of the button
+
     }
   }
   // save the current state as the last state, for next time through the loop
@@ -359,8 +365,40 @@ void loop() {
   //delay(5);
 }
 
-
 float CalculateAngleAtPin (int NumberOfPin){
+  int flexADC = analogRead(NumberOfPin);
+  float flexV = flexADC * VCC / 1023.0;
+  float flexR = R_DIV * (VCC / flexV - 1.0);
+  float angle = map(flexR, STRAIGHT_RESISTANCE[NumberOfPin], BEND_RESISTANCE[NumberOfPin],
+                   0, 90.0);
+  return angle;
+  }
+float CalculateAngleAtPinTopThumb (int NumberOfPin){
+  int flexADC = analogRead(NumberOfPin);
+  float flexV = flexADC * VCC / 1023.0;
+  float flexR = R_DIV * (VCC / flexV - 1.0);
+  float angle = map(flexR, STRAIGHT_RESISTANCE[NumberOfPin], BEND_RESISTANCE[NumberOfPin],
+                   0, 90.0);
+  return angle;
+  }
+float CalculateAngleAtPinInternalThumb (int NumberOfPin){
+  int flexADC = analogRead(NumberOfPin);
+  float flexV = flexADC * VCC / 1023.0;
+  float flexR = R_DIV * (VCC / flexV - 1.0);
+  float angle = map(flexR, STRAIGHT_RESISTANCE[NumberOfPin], BEND_RESISTANCE[NumberOfPin],
+                   0, 90.0);
+  return angle;
+  }
+float CalculateAngleAtPinMedialWrist (int NumberOfPin){
+  int flexADC = analogRead(NumberOfPin);
+  float flexV = flexADC * VCC / 1023.0;
+  float flexR = R_DIV * (VCC / flexV - 1.0);
+  float angle = map(flexR, STRAIGHT_RESISTANCE[NumberOfPin], BEND_RESISTANCE[NumberOfPin],
+                   0, 90.0);
+  return angle;
+  }
+
+float CalculateAngleAtPinLateralWrist (int NumberOfPin){
   int flexADC = analogRead(NumberOfPin);
   float flexV = flexADC * VCC / 1023.0;
   float flexR = R_DIV * (VCC / flexV - 1.0);
